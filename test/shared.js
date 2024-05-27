@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readFile as fsReadFile } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as chai from 'chai';
-import { formatCharset, parseHeader, generateHeader, foldLine, parseNPluralFromHeadersSafely } from '../src/shared.js';
+import { formatCharset, parseHeader, generateHeader, foldLine, parseNPluralFromHeadersSafely, compareMsgid } from '../src/shared.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,6 +87,43 @@ X-Poedit-SourceCharset: UTF-8`;
       expect(line).to.equal(folded.join(''));
       expect(folded).to.deep.equal(['abc \\n', 'def \\n', 'ghi']);
       expect(folded.length).to.equal(3);
+    });
+
+    it('should fold the line into multiple lines with the right length', () => {
+      const line = Array.from({ length: 76 }, () => 'a').join('') + 'aaaaa\\aaaa';
+      const folded = foldLine(line);
+      expect(folded.length).to.equal(2);
+      expect(folded[0].length).to.equal(76);
+      expect(line).to.equal(folded.join(''));
+      expect(folded).to.deep.equal([
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'aaaaa\\aaaa'
+      ]);
+    });
+
+    it('should fold the line into multiple lines with the right length (escaped character)', () => {
+      const line = Array.from({ length: 75 }, () => 'a').join('') + '\\aaaaaa\\aaaa';
+      const folded = foldLine(line);
+      expect(folded.length).to.equal(2);
+      expect(folded[0].length).to.equal(77);
+      expect(line).to.equal(folded.join(''));
+      expect(folded).to.deep.equal([
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\a',
+        'aaaaa\\aaaa'
+      ]);
+    });
+
+
+    it('should fold the line into multiple lines with the right length (escaped forward slash)', () => {
+      const line = Array.from({ length: 75 }, () => 'a').join('') + '\\\\aaaaa\\aaaa';
+      const folded = foldLine(line);
+      expect(folded.length).to.equal(2);
+      expect(folded[0].length).to.equal(77);
+      expect(line).to.equal(folded.join(''));
+      expect(folded).to.deep.equal([
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\\',
+        'aaaaa\\aaaa'
+      ]);
     });
 
     it('should fold at default length', () => {
@@ -197,5 +234,47 @@ X-Poedit-SourceCharset: UTF-8`;
 
       expect(nplurals).to.equal(1);
     });
+  });
+});
+
+describe('Strings Sorting function', () => {
+  it('should return -1 when left msgid is less than right msgid', () => {
+    const result = compareMsgid({ msgid: 'a' }, { msgid: 'b' });
+    expect(result).to.equal(-1);
+  });
+
+  it('should return 1 when left msgid is greater than right msgid', () => {
+    const result = compareMsgid({ msgid: 'b' }, { msgid: 'a' });
+    expect(result).to.equal(1);
+  });
+
+  it('should return 0 when left msgid is equal to right msgid', () => {
+    const result = compareMsgid({ msgid: 'a' }, { msgid: 'a' });
+    expect(result).to.equal(0);
+  });
+
+  it('should return -1 when msgid is the uppercased version of the other msgid', () => {
+    const result = compareMsgid({ msgid: 'A' }, { msgid: 'a' });
+    expect(result).to.equal(-1);
+  });
+
+  it('should return 1 when the msgid is a number and other is a string', () => {
+    const result = compareMsgid({ msgid: 'A' }, { msgid: '1' });
+    expect(result).to.equal(1);
+  });
+
+  it('should return the right result using buffer comparison', () => {
+    const result = compareMsgid({ msgid: Buffer.from('a') }, { msgid: Buffer.from('b') });
+    expect(result).to.equal(-1);
+  });
+
+  it('should return the right result using buffer (both directions)', () => {
+    const result = compareMsgid({ msgid: Buffer.from('c') }, { msgid: Buffer.from('b') });
+    expect(result).to.equal(1);
+  });
+
+  it('should return the right result using buffer comparison (checking uppercase)', () => {
+    const result = compareMsgid({ msgid: Buffer.from('A') }, { msgid: Buffer.from('a') });
+    expect(result).to.equal(-1);
   });
 });
