@@ -1,10 +1,10 @@
-import { EOL } from 'os';
+import { EOL } from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import { promisify } from 'node:util';
 import * as chai from 'chai';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs';
-import * as gettextParser from '../index.js';
-import { fileURLToPath } from 'url';
+import * as gettextParser from '../src/index.js';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +17,7 @@ chai.config.includeStack = true;
 describe('Obsolete', async () => {
   const [po, mo, jsonString] = await Promise.all([
     readFile(path.join(__dirname, 'fixtures/obsolete.po')),
-    readFile(path.join(__dirname, 'fixtures/obsolete.mo')),
+    readFile(path.join(__dirname, 'fixtures/obsolete-le.mo')),
     readFile(path.join(__dirname, 'fixtures/obsolete.json'), 'utf8')
   ]);
 
