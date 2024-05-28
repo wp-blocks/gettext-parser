@@ -1,8 +1,9 @@
 // see https://www.gnu.org/software/gettext/manual/html_node/Header-Entry.html
-/** @type {string} Header name for "Plural-Forms" */
-const PLURAL_FORMS = 'Plural-Forms';
-/** @typedef {Map<string, string>} Headers Map of header keys to header names */
-export const HEADERS = new Map([
+/** Header name for "Plural-Forms" */
+const PLURAL_FORMS: string = 'Plural-Forms';
+
+/** Map of header keys to header names */
+export const HEADERS: Map<string, string> = new Map([
   ['project-id-version', 'Project-Id-Version'],
   ['report-msgid-bugs-to', 'Report-Msgid-Bugs-To'],
   ['pot-creation-date', 'POT-Creation-Date'],
@@ -15,19 +16,19 @@ export const HEADERS = new Map([
   ['plural-forms', PLURAL_FORMS]
 ]);
 
-const PLURAL_FORM_HEADER_NPLURALS_REGEX = /nplurals\s*=\s*(?<nplurals>\d+)/;
+const PLURAL_FORM_HEADER_NPLURALS_REGEX: RegExp = /nplurals\s*=\s*(?<nplurals>\d+)/;
 
 /**
  * Parses a header string into an object of key-value pairs
  *
- * @param {string} str Header string
- * @return {Record<string, string>} An object of key-value pairs
+ * @param str Header string
+ * @return An object of key-value pairs
  */
-export function parseHeader (str = '') {
+export function parseHeader (str: string = ''): Record<string, string> {
   /** @type {string} Header string  */
   return str
     .split('\n')
-    .reduce((/** @type {Record<string, string>} */ headers, line) => {
+    .reduce((headers: Record<string, string>, line: string) => {
       const parts = line.split(':');
       let key = (parts.shift() || '').trim();
 
@@ -46,11 +47,11 @@ export function parseHeader (str = '') {
 /**
  * Attempts to safely parse 'nplurals" value from "Plural-Forms" header
  *
- * @param {Record<string, string>} [headers] An object with parsed headers
- * @param {number} fallback Fallback value if "Plural-Forms" header is absent
- * @returns {number} Parsed result
+ * @param headers An object with parsed headers
+ * @param fallback Fallback value if "Plural-Forms" header is absent
+ * @returns Parsed result
  */
-export function parseNPluralFromHeadersSafely (headers, fallback = 1) {
+export function parseNPluralFromHeadersSafely (headers: Record<string, string>, fallback: number = 1): number {
   const pluralForms = headers ? headers[PLURAL_FORMS] : false;
 
   if (!pluralForms) {
@@ -67,10 +68,10 @@ export function parseNPluralFromHeadersSafely (headers, fallback = 1) {
 /**
  * Joins a header object of key value pairs into a header string
  *
- * @param {Record<string, string>} header Object of key value pairs
- * @return {string} An object of key-value pairs
+ * @param header Object of key value pairs
+ * @return An object of key-value pairs
  */
-export function generateHeader (header = {}) {
+export function generateHeader (header: Record<string, string> = {}): string {
   const keys = Object.keys(header)
     .filter(key => !!key);
 
@@ -87,11 +88,11 @@ export function generateHeader (header = {}) {
 /**
  * Normalizes charset name. Converts utf8 to utf-8, WIN1257 to windows-1257 etc.
  *
- * @param {string} charset Charset name
- * @param {string} defaultCharset Default charset name, defaults to 'iso-8859-1'
- * @return {string} Normalized charset name
+ * @param charset Charset name
+ * @param defaultCharset Default charset name, defaults to 'iso-8859-1'
+ * @return Normalized charset name
  */
-export function formatCharset (charset = 'iso-8859-1', defaultCharset = 'iso-8859-1') {
+export function formatCharset (charset: string = 'iso-8859-1', defaultCharset: string = 'iso-8859-1'): string {
   return charset.toString()
     .toLowerCase()
     .replace(/^utf[-_]?(\d+)$/, 'utf-$1')
@@ -105,11 +106,11 @@ export function formatCharset (charset = 'iso-8859-1', defaultCharset = 'iso-885
 /**
  * Folds long lines according to PO format
  *
- * @param {string} str PO formatted string to be folded
- * @param {number} [maxLen=76] Maximum allowed length for folded lines
- * @return {string[]} An array of lines
+ * @param str PO formatted string to be folded
+ * @param maxLen Maximum allowed length for folded lines
+ * @return An array of lines
  */
-export function foldLine (str, maxLen = 76) {
+export function foldLine (str: string, maxLen: number = 76): string[] {
   const lines = [];
   const len = str.length;
   let curLine = '';
@@ -117,15 +118,12 @@ export function foldLine (str, maxLen = 76) {
   let match;
 
   while (pos < len) {
-    let escaped = false;
-
     curLine = str.substring(pos, pos + maxLen);
 
     // ensure that the line never ends with a partial escaping
     // make longer lines if needed
-    if (curLine.endsWith('\\') && pos + curLine.length < len) {
-      escaped = true;
-      curLine += str.charAt(pos + curLine.length); // Append the next character
+    while (curLine.endsWith('\\') && pos + curLine.length < len) {
+      curLine += str.charAt(pos + curLine.length + 1); // Append the next character
     }
 
     // ensure that if possible, line breaks are done at reasonable places
@@ -137,7 +135,7 @@ export function foldLine (str, maxLen = 76) {
       if ((match = /.*\s+/.exec(curLine)) && /\S/.test(match[0])) {
         // use everything before and including the last white space character (if anything)
         curLine = match[0];
-      } else if (!escaped && (match = /.*[\x21-\x2f0-9\x5b-\x60\x7b-\x7e]+/.exec(curLine)) && /[^\x21-\x2f0-9\x5b-\x60\x7b-\x7e]/.test(match[0])) {
+      } else if ((match = /.*[\x21-\x2f0-9\x5b-\x60\x7b-\x7e]+/.exec(curLine)) && /[^\x21-\x2f0-9\x5b-\x60\x7b-\x7e]/.test(match[0])) {
         // use everything before and including the last "special" character (if anything)
         curLine = match[0];
       }
@@ -153,12 +151,11 @@ export function foldLine (str, maxLen = 76) {
 /**
  * Comparator function for comparing msgid
  *
- * @template {Buffer|string} T
- * @param {{msgid: T}} left with msgid prev
- * @param {{msgid: T}} right with msgid next
- * @returns {number} comparator index
+ * @param left with msgid prev
+ * @param right with msgid next
+ * @returns comparator index
  */
-export function compareMsgid ({ msgid: left }, { msgid: right }) {
+export function compareMsgid <T>({msgid: left}: { msgid: T; }, {msgid: right}: { msgid: T; }): number {
   if (left < right) {
     return -1;
   }
@@ -174,11 +171,12 @@ export function compareMsgid ({ msgid: left }, { msgid: right }) {
  * Custom SyntaxError subclass that includes the lineNumber property.
  */
 export class ParserError extends SyntaxError {
+  lineNumber: number;
   /**
-   * @param {string} message - Error message.
-   * @param {number} lineNumber - Line number where the error occurred.
+   * @param message - Error message.
+   * @param lineNumber - Line number where the error occurred.
    */
-  constructor (message, lineNumber) {
+  constructor (message: string, lineNumber: number) {
     super(message);
     this.lineNumber = lineNumber;
   }

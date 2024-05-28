@@ -1,42 +1,19 @@
 import encoding from 'encoding';
 import { HEADERS, formatCharset, generateHeader, compareMsgid } from './shared.js';
 import contentType from 'content-type';
+import {GetTextTranslation, GetTextTranslations, Size, TranslationBuffers, Translations} from "./types.js";
+import { Transform } from 'readable-stream';
 
-/**
- * @typedef {import('node:stream').Transform} Transform
- * @typedef {import('./types.js').GetTextTranslation} GetTextTranslation
- * @typedef {import('./types.js').GetTextTranslations} GetTextTranslations
- * @typedef {import('./types.js').Translations} Translations
- * @typedef {import('./types.js').WriteFunc} WriteFunc
- */
-
-/**
- * @typedef {Object} Size Data about the size of the compiled MO object.
- * @property {number} msgid The size of the msgid section.
- * @property {number} msgstr The size of the msgstr section.
- * @property {number} total The total size of the compiled MO object.
- */
-
-/**
- * @typedef {{ msgid: Buffer, msgstr: Buffer }} TranslationBuffers A translation object partially parsed.
- */
-
-/**
- *
- * @typedef {Object} CompilerOptions MO compiler options
- * @property {'be'|'le'} [endian='le'] Endianness of the output buffer. Default is 'le'
- */
 
 /**
  * Exposes general compiler function. Takes a translation
  * object as a parameter and returns binary MO object
  *
- * @param {GetTextTranslations} table Translation object
- * @param {CompilerOptions} [options] MO compiler options
- * @return {Buffer} Compiled binary MO object
+ * @param table Translation object
+ * @return Compiled binary MO object
  */
-export default function (table, options = { endian: 'le' }) {
-  const compiler = new Compiler(table, options);
+export default function (table: GetTextTranslations): Buffer {
+  const compiler = new Compiler(table);
 
   return compiler.compile();
 }
@@ -46,8 +23,8 @@ export default function (table, options = { endian: 'le' }) {
  * @param {Record<string, string>} headers the headers
  * @return {Record<string, string>} The prepared header
  */
-function prepareMoHeaders (headers) {
-  return Object.keys(headers).reduce((result, key) => {
+function prepareMoHeaders (headers: Record<string, string>): Record<string, string> {
+  return Object.keys(headers).reduce((result: Record<string, string>, key: string) => {
     const lowerKey = key.toLowerCase();
 
     if (HEADERS.has(lowerKey)) {
@@ -71,10 +48,10 @@ function prepareMoHeaders (headers) {
  * @param {Translations} translations
  * @return {Translations}
  */
-function prepareTranslations (translations) {
+function prepareTranslations (translations: Translations): Translations {
   return Object.keys(translations).reduce((result, msgctxt) => {
     const context = translations[msgctxt];
-    const msgs = Object.keys(context).reduce((result, msgid) => {
+    const msgs = Object.keys(context).reduce((result: Record<string, GetTextTranslation>, msgid) => {
       const TranslationMsgstr = context[msgid].msgstr;
       const hasTranslation = TranslationMsgstr.some(item => !!item.length);
 
@@ -83,44 +60,36 @@ function prepareTranslations (translations) {
       }
 
       return result;
-    }, /** @type {Record<string, GetTextTranslation>} */({}));
+    },{});
 
     if (Object.keys(msgs).length) {
       result[msgctxt] = msgs;
     }
 
     return result;
-  }, /** @type {Translations} */({}));
+  }, {} as Translations);
 }
 
+
 /**
- * Creates a MO compiler object.
- * @this {Compiler & Transform}
+ * Creates a MO compiler object
  *
- * @param {GetTextTranslations} [table] Translation table as defined in the README
- * @param {CompilerOptions} [options] MO compiler options
+ * @param table Translation table as defined in the README
  */
-function Compiler (table, options = { endian: 'le' }) {
-  /** @type {GetTextTranslations} _table The translation table */
+function Compiler (this: Compiler & Transform, table: GetTextTranslations) {
+  /** The translation table */
   this._table = {
     charset: undefined,
     translations: prepareTranslations(table?.translations ?? {}),
     headers: prepareMoHeaders(table?.headers ?? {})
-  };
+  } as GetTextTranslations;
 
   this._translations = [];
 
-  /**
-   * @type {WriteFunc}
-   */
-  this._writeFunc = options?.endian === 'be' ? 'writeUInt32BE' : 'writeUInt32LE';
+  this._writeFunc = 'writeUInt32LE';
 
   this._handleCharset();
 
-  /**
-   * Magic bytes for the generated binary data
-   * @type {number} MAGIC file header magic value of mo file
-   */
   this.MAGIC = 0x950412de;
 }
 
@@ -197,10 +166,10 @@ Compiler.prototype._generateList = function () {
 /**
  * Calculate buffer size for the final binary object
  *
- * @param {TranslationBuffers[]} list An array of translation strings from _generateList
- * @return {Size} Size data of {msgid, msgstr, total}
+ * @param list An array of translation strings from _generateList
+ * @return Size data of {msgid, msgstr, total}
  */
-Compiler.prototype._calculateSize = function (list) {
+Compiler.prototype._calculateSize = function (list: TranslationBuffers[]): Size {
   let msgidLength = 0;
   let msgstrLength = 0;
 
@@ -231,11 +200,11 @@ Compiler.prototype._calculateSize = function (list) {
 /**
  * Generates the binary MO object from the translation list
  *
- * @param {TranslationBuffers[]} list translation list
- *  @param {Size} size Byte size information
- *  @return {Buffer} Compiled MO object
+ * @param list translation list
+ * @param size Byte size information
+ * @return Compiled MO object
  */
-Compiler.prototype._build = function (list, size) {
+Compiler.prototype._build = function (list: TranslationBuffers[], size: Size): Buffer {
   const returnBuffer = Buffer.alloc(size.total);
   let curPosition = 0;
   let i;
@@ -267,8 +236,8 @@ Compiler.prototype._build = function (list, size) {
   for (i = 0, len = list.length; i < len; i++) {
     const msgidLength = /** @type {Buffer} */(/** @type {unknown} */(list[i].msgid));
     msgidLength.copy(returnBuffer, curPosition);
-    returnBuffer[this._writeFunc](list[i].msgid.length, 28 + i * 8);
-    returnBuffer[this._writeFunc](curPosition, 28 + i * 8 + 4);
+    returnBuffer.writeUInt32LE(list[i].msgid.length, 28 + i * 8);
+    returnBuffer.writeUInt32LE(curPosition, 28 + i * 8 + 4);
     returnBuffer[curPosition + list[i].msgid.length] = 0x00;
     curPosition += list[i].msgid.length + 1;
   }
@@ -277,8 +246,8 @@ Compiler.prototype._build = function (list, size) {
   for (i = 0, len = list.length; i < len; i++) {
     const msgstrLength = /** @type {Buffer} */(/** @type {unknown} */(list[i].msgstr));
     msgstrLength.copy(returnBuffer, curPosition);
-    returnBuffer[this._writeFunc](list[i].msgstr.length, 28 + (4 + 4) * list.length + i * 8);
-    returnBuffer[this._writeFunc](curPosition, 28 + (4 + 4) * list.length + i * 8 + 4);
+    returnBuffer.writeUInt32LE(list[i].msgstr.length, 28 + (4 + 4) * list.length + i * 8);
+    returnBuffer.writeUInt32LE(curPosition, 28 + (4 + 4) * list.length + i * 8 + 4);
     returnBuffer[curPosition + list[i].msgstr.length] = 0x00;
     curPosition += list[i].msgstr.length + 1;
   }

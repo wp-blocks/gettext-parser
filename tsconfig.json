@@ -6,7 +6,8 @@
     "moduleResolution": "Node16",
     "target": "ES2018",
     "lib": [
-      "ES2018"
+      "ES2018",
+      "dom"
     ],
     // Strict mode
     "strict": true,
@@ -28,7 +29,7 @@
     "typeRoots": [
       "./types",
       "./node_modules/@types"
-    ],
+    ]
   },
   "include": [
     "src/**/*",

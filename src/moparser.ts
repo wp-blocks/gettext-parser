@@ -1,13 +1,7 @@
 import encoding from 'encoding';
 import { formatCharset, parseHeader } from './shared.js';
 
-/**
- * @typedef {import('./types.js').GetTextTranslations} GetTextTranslations
- * @typedef {import('./types.js').GetTextTranslation} GetTextTranslation
- * @typedef {import('./types.js').Translations} Translations
- * @typedef {import('./types.js').WriteFunc} WriteFunc
- * @typedef {import('./types.js').ReadFunc} ReadFunc
- */
+import type {Parser,GetTextTranslations,GetTextTranslation,Translations,WriteFunc,ReadFunc,} from './types.js';
 
 /**
  * Parses a binary MO object into translation table
@@ -15,7 +9,7 @@ import { formatCharset, parseHeader } from './shared.js';
  * @param {Buffer} buffer Binary MO object
  * @param {string} [defaultCharset] Default charset to use
  */
-export default function (buffer, defaultCharset) {
+export default function (buffer: any, defaultCharset: string | undefined) {
   const parser = new Parser(buffer, defaultCharset);
 
   return parser.parse();
@@ -28,7 +22,7 @@ export default function (buffer, defaultCharset) {
  * @param {Buffer|null} fileContents Binary MO object
  * @param {string} [defaultCharset] Default charset to use
  */
-function Parser (fileContents, defaultCharset = 'iso-8859-1') {
+function Parser (this: Parser, fileContents: Buffer | null, defaultCharset: string = 'iso-8859-1') {
   this._fileContents = fileContents;
 
   this._charset = defaultCharset;
