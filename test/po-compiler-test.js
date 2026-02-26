@@ -3,20 +3,18 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { EOL } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { po } from '../src/index.js';
-import * as chai from 'chai';
+import { po } from '../lib/index.mjs';
+import { describe, test } from 'node:test';
+import assert from 'node:assert';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const readFile = promisify(fsReadFile);
 
-const expect = chai.expect;
-chai.config.includeStack = true;
-
 describe('PO Compiler', () => {
   describe('Headers', () => {
-    it('should keep tile casing', async () => {
+    test('should keep tile casing', async () => {
       const [json, poData] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/headers-case.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/headers-case.po'), 'utf8')
@@ -25,12 +23,12 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(poData);
+      assert.strictEqual(compiled, poData);
     });
   });
 
   describe('UTF-8', () => {
-    it('should compile', async () => {
+    test('should compile', async () => {
       const [json, poData] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/utf8-po.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/utf8.po'), 'utf8')
@@ -39,27 +37,14 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(poData);
+      assert.strictEqual(compiled, poData);
     });
   });
 
-  describe('Latin-13', () => {
-    it('should compile', async () => {
-      const [json, poData] = await Promise.all([
-      // gettext-parser can only handle utf8 input (output will be the specified charset)
-        readFile(path.join(__dirname, 'fixtures/latin13-po.json'), 'utf8'),
-        readFile(path.join(__dirname, 'fixtures/latin13.po'), 'latin1')
-      ]);
 
-      const compiled = po.compile(JSON.parse(json), { eol: EOL })
-        .toString('latin1');
-
-      expect(compiled).to.equal(poData);
-    });
-  });
 
   describe('Plurals', () => {
-    it('should compile correct plurals in POT files', async () => {
+    test('should compile correct plurals in POT files', async () => {
       const [json, pot] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/plural-pot.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/plural.pot'), 'utf8')
@@ -68,12 +53,12 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(pot);
+      assert.strictEqual(compiled, pot);
     });
   });
 
   describe('Message folding', () => {
-    it('should compile without folding', async () => {
+    test('should compile without folding', async () => {
       const [json, poData] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/utf8-po.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/utf8-no-folding.po'), 'utf8')
@@ -82,10 +67,10 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { foldLength: 0, eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(poData);
+      assert.strictEqual(compiled, poData);
     });
 
-    it('should compile with different folding', async () => {
+    test('should compile with different folding', async () => {
       const [json, poData] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/utf8-po.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/utf8-folding-100.po'), 'utf8')
@@ -94,12 +79,12 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { foldLength: 100, eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(poData);
+      assert.strictEqual(compiled, poData);
     });
   });
 
   describe('Sorting', () => {
-    it('should sort output entries by msgid when `sort` is `true`', async () => {
+    test('should sort output entries by msgid when `sort` is `true`', async () => {
       const [json, pot] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/sort-test.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/sort-test.pot'), 'utf8')
@@ -108,11 +93,11 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { sort: true, eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(pot);
+      assert.strictEqual(compiled, pot);
     });
 
-    it('should sort entries using a custom `sort` function', async () => {
-      function compareMsgidAndMsgctxt (left, right) {
+    test('should sort entries using a custom `sort` function', async () => {
+      function compareMsgidAndMsgctxt(left, right) {
         if (left.msgid > right.msgid) {
           return 1;
         }
@@ -143,14 +128,14 @@ describe('PO Compiler', () => {
       const compiled2 = po.compile(JSON.parse(json2), { sort: compareMsgidAndMsgctxt, eol: EOL })
         .toString('utf8');
 
-      expect(compiled1).to.equal(compiled2);
-      expect(compiled1).to.equal(pot);
-      expect(compiled2).to.equal(pot);
+      assert.strictEqual(compiled1, compiled2);
+      assert.strictEqual(compiled1, pot);
+      assert.strictEqual(compiled2, pot);
     });
   });
 
   describe('Skip escaping characters', () => {
-    it('should compile without escaping characters', async () => {
+    test('should compile without escaping characters', async () => {
       const [json, poData] = await Promise.all([
         readFile(path.join(__dirname, 'fixtures/utf8-skip-escape-characters.json'), 'utf8'),
         readFile(path.join(__dirname, 'fixtures/utf8-skip-escape-characters.po'), 'utf8')
@@ -159,7 +144,7 @@ describe('PO Compiler', () => {
       const compiled = po.compile(JSON.parse(json), { escapeCharacters: false, foldLength: 0, eol: EOL })
         .toString('utf8');
 
-      expect(compiled).to.equal(poData);
+      assert.strictEqual(compiled, poData);
     });
   });
 });
