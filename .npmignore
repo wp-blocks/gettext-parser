@@ -1,4 +1,6 @@
 /test
 /src
-.eslintrc.js
+biome.json
 .gitignore
+tsdown.config.ts
+.editorconfig
