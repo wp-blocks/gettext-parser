@@ -1,0 +1,8 @@
+{
+    "name": "gettext-parser-tests",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "gettext-parser": "^9.0.1"
+    }
+}
