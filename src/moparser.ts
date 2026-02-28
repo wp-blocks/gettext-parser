@@ -1,0 +1,225 @@
+import { formatCharset, parseHeader } from "./shared.js";
+
+import type {
+	GetTextTranslation,
+	GetTextTranslations,
+	ReadFunc,
+	WriteFunc,
+} from "./types.js";
+
+/**
+ * Parses a binary MO object into translation table
+ *
+ * @param {Buffer} buffer Binary MO object
+ * @param {string} [defaultCharset] Default charset to use
+ */
+export default function (buffer: Buffer, defaultCharset: string | undefined) {
+	const parser = new Parser(buffer, defaultCharset);
+
+	return parser.parse();
+}
+
+/**
+ * Creates a MO parser object.
+ */
+class Parser {
+	private _fileContents: Buffer | null;
+	private _charset: string;
+	private _writeFunc: WriteFunc;
+	private _readFunc: ReadFunc;
+	private readonly _table: GetTextTranslations;
+	private readonly MAGIC: number;
+	private _offsetOriginals?: number;
+	private _offsetTranslations?: number;
+	private _total?: number;
+	private _revision?: number;
+
+	constructor(
+		fileContents: Buffer | null,
+		defaultCharset: string = "iso-8859-1",
+	) {
+		this._fileContents = fileContents;
+
+		this._charset = defaultCharset;
+
+		this._writeFunc = "writeUInt32LE";
+
+		this._readFunc = "readUInt32LE";
+
+		/**
+		 * Translation table
+		 */
+		this._table = {
+			charset: this._charset,
+			headers: {},
+			translations: {},
+		};
+
+		/**
+		 * Magic constant to check the endianness of the input file
+		 */
+		this.MAGIC = 0x950412de;
+	}
+
+	/**
+	 * Checks if number values in the input file are in big- or little endian format.
+	 *
+	 * @return {boolean} Return true if magic was detected
+	 */
+	_checkMagick(): boolean {
+		if (this._fileContents?.readUInt32LE(0) === this.MAGIC) {
+			this._readFunc = "readUInt32LE";
+			this._writeFunc = "writeUInt32LE";
+
+			return true;
+		} else if (this._fileContents?.readUInt32BE(0) === this.MAGIC) {
+			this._readFunc = "readUInt32BE";
+			this._writeFunc = "writeUInt32BE";
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Read the original strings and translations from the input MO file.
+	 * Use the first translation string in the file as the header.
+	 */
+	_loadTranslationTable() {
+		let offsetOriginals = this._offsetOriginals || 0;
+		let offsetTranslations = this._offsetTranslations || 0;
+
+		// Return if there are no translations
+		if (!this._total) {
+			this._fileContents = null;
+			return;
+		}
+
+		// Loop through all strings in the MO file
+		for (let i = 0; i < this._total; i++) {
+			if (this._fileContents === null) continue;
+			// msgid string
+			const length = this._fileContents[this._readFunc](offsetOriginals);
+			offsetOriginals += 4;
+			const position = this._fileContents[this._readFunc](offsetOriginals);
+			offsetOriginals += 4;
+			const msgidBuf = this._fileContents.subarray(position, position + length);
+
+			// matching msgstr
+			const msgstrLength =
+				this._fileContents[this._readFunc](offsetTranslations);
+			offsetTranslations += 4;
+			const msgstrPosition =
+				this._fileContents[this._readFunc](offsetTranslations);
+			offsetTranslations += 4;
+			const msgstrBuf = this._fileContents.subarray(
+				msgstrPosition,
+				msgstrPosition + msgstrLength,
+			);
+
+			if (!i && !msgidBuf.toString()) {
+				this._handleCharset(msgstrBuf);
+			}
+
+			const decoder = new TextDecoder(this._charset);
+			const msgid = decoder.decode(msgidBuf);
+			const msgstr = decoder.decode(msgstrBuf);
+
+			this._addString(msgid, msgstr);
+		}
+
+		// dump the file contents object
+		this._fileContents = null;
+	}
+
+	/**
+	 * Detects charset for MO strings from the header
+	 *
+	 * @param {Buffer} headers Header value
+	 */
+	_handleCharset(headers: Buffer) {
+		const headersStr = headers.toString();
+		let match;
+
+		if ((match = headersStr.match(/[; ]charset\s*=\s*([\w-]+)/i))) {
+			this._charset = this._table.charset = formatCharset(
+				match[1],
+				this._charset,
+			);
+		}
+
+		const decoder = new TextDecoder(this._charset);
+		const decodedHeaders = decoder.decode(headers);
+
+		this._table.headers = parseHeader(decodedHeaders);
+	}
+
+	/**
+	 * Adds a translation to the translation object
+	 *
+	 * @param {string} msgidRaw Original string
+	 * @param {string} msgstrRaw Translation for the original string
+	 */
+	_addString(msgidRaw: string, msgstrRaw: string) {
+		const translation: Partial<GetTextTranslation> = {};
+		let msgctxt = "";
+		let msgidPlural;
+
+		const msgidArray = msgidRaw.split("\u0004");
+		if (msgidArray.length > 1) {
+			msgctxt = msgidArray.shift() || "";
+			translation.msgctxt = msgctxt;
+		}
+		msgidRaw = msgidArray.join("\u0004");
+
+		const parts = msgidRaw.split("\u0000");
+		const msgid = parts.shift() || "";
+
+		translation.msgid = msgid;
+
+		if ((msgidPlural = parts.join("\u0000"))) {
+			translation.msgid_plural = msgidPlural;
+		}
+
+		const msgstr = msgstrRaw.split("\u0000");
+		translation.msgstr = [...msgstr];
+
+		if (!this._table.translations[msgctxt]) {
+			this._table.translations[msgctxt] = {};
+		}
+
+		this._table.translations[msgctxt][msgid] =
+			translation as GetTextTranslation;
+	}
+
+	/**
+	 * Parses the MO object and returns translation table
+	 *
+	 * @return {GetTextTranslations | false} Translation table
+	 */
+	parse(): GetTextTranslations | false {
+		if (!this._checkMagick() || this._fileContents === null) {
+			return false;
+		}
+
+		/**
+		 * GetText revision nr, usually 0
+		 */
+		this._revision = this._fileContents[this._readFunc](4);
+
+		/** Total count of translated strings */
+		this._total = this._fileContents[this._readFunc](8) ?? 0;
+
+		/** Offset position for original strings table */
+		this._offsetOriginals = this._fileContents[this._readFunc](12);
+
+		/** Offset position for translation strings table */
+		this._offsetTranslations = this._fileContents[this._readFunc](16);
+
+		// Load translations into this._translationTable
+		this._loadTranslationTable();
+
+		return this._table;
+	}
+}

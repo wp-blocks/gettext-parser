@@ -1,52 +1,57 @@
 {
-  "name": "gettext-parser",
+  "name": "gettext-parser-next",
   "description": "Parse and compile gettext po and mo files to/from json, nothing more, nothing less",
-  "version": "8.0.0",
-  "author": "Andris Reinman",
-  "contributors": [
-    {
-      "name": "Sam Hauglustaine"
-    }
-  ],
+  "version": "1.0.0",
+  "author": ["Erik <erik@codekraft.it>", "john <john@codekraft.it>"],
   "homepage": "http://github.com/smhg/gettext-parser",
   "repository": {
     "type": "git",
-    "url": "http://github.com/smhg/gettext-parser.git"
+    "url": "git+http://github.com/smhg/gettext-parser.git"
   },
   "type": "module",
+  "main": "./lib/index.cjs",
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./lib/index.d.mts",
+        "default": "./lib/index.mjs"
+      },
+      "require": {
+        "types": "./lib/index.d.cts",
+        "default": "./lib/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "lib/",
+    "tests/*.ts",
+    "*.json",
+    "*.md",
+    ".gitignore",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "lint": "eslint src/*.js test/*.js",
-    "test-generate-mo": "msgfmt test/fixtures/latin13.po -o test/fixtures/latin13.mo & msgfmt test/fixtures/utf8.po -o test/fixtures/utf8.mo & msgfmt test/fixtures/obsolete.po -o test/fixtures/obsolete.mo",
-    "test": "mocha",
-    "test:coverage": "npx c8 --check-coverage npm run test",
-    "preversion": "npm run lint && npm test",
+    "start": "tsc --watch",
+    "build": "tsdown",
+    "lint": "npx @biomejs/biome check --write ./src",
+    "test": "node --test",
+    "test:install": "cd test && npm install",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "preversion": "npx publint && npm run lint && npm test",
     "postversion": "git push && git push --tags",
     "prepublishOnly": "npm i && tsc && npm run lint && npm run test"
   },
-  "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
   "license": "MIT",
-  "dependencies": {
-    "content-type": "^1.0.5",
-    "encoding": "^0.1.13",
-    "readable-stream": "^4.5.2"
-  },
   "devDependencies": {
-    "@types/chai": "latest",
-    "@types/content-type": "^1.1.8",
-    "@types/mocha": "latest",
-    "@types/readable-stream": "^4.0.11",
-    "chai": "^5.0.3",
-    "eslint": "^8.56.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-promise": "^6.1.1",
-    "mocha": "^10.4.0",
-    "typescript": "^5.4.5"
+    "@biomejs/biome": "2.4.4",
+    "@types/node": "^25.3.1",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3"
   },
   "keywords": [
     "i18n",

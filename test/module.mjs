@@ -1,11 +1,12 @@
-import { expect } from 'chai';
-import { po, mo } from '../src/index.js';
+import { describe, test } from 'node:test';
+import assert from 'node:assert';
+import { mo, po } from '../lib/index.mjs';
 
 describe('esm module', () => {
-  it('should allow named imports', () => {
-    expect(po.parse).to.be.a('function');
-    expect(po.compile).to.be.a('function');
-    expect(mo.parse).to.be.a('function');
-    expect(mo.compile).to.be.a('function');
+  test('should allow named imports', () => {
+    assert.strictEqual(typeof po.parse, 'function');
+    assert.strictEqual(typeof po.compile, 'function');
+    assert.strictEqual(typeof mo.parse, 'function');
+    assert.strictEqual(typeof mo.compile, 'function');
   });
 });
